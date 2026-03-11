@@ -3,78 +3,113 @@ import pandas as pd
 from datetime import datetime, time
 import plotly.graph_objects as go
 
-# Configuração para o celular
+# Configuração para celular
 st.set_page_config(page_title="Monitor Parkinson", layout="centered")
 
-st.title("📊 Monitor Parkinson Pro")
+# --- ESTILO DOS BOTÕES REDONDOS E CORES ---
+st.markdown("""
+<style>
+    /* Diminuir o título */
+    .titulo-pequeno { font-size: 20px !important; font-weight: bold; text-align: center; }
+    
+    /* Estilo para transformar botões em círculos/ovais coloridos */
+    div.stButton > button {
+        border-radius: 50px !important;
+        height: 80px !important;
+        width: 100% !important;
+        font-size: 18px !important;
+        font-weight: bold !important;
+        color: white !important;
+        border: none !important;
+    }
+    /* Cores específicas para cada botão */
+    .stButton:nth-of-type(1) button { background-color: #198754 !important; } /* Verde - Remédio */
+    .stButton:nth-of-type(2) button { background-color: #dc3545 !important; } /* Vermelho - OFF */
+    .stButton:nth-of-type(3) button { background-color: #ffc107 !important; color: black !important; } /* Amarelo - Treino */
+    .stButton:nth-of-type(4) button { background-color: #0dcaf0 !important; color: black !important; } /* Azul - Comida */
+</style>
+""", unsafe_allow_stdio=True)
 
-# Memória do App
+st.markdown('<p class="titulo-pequeno">Monitor Parkinson Pro</p>', unsafe_allow_stdio=True)
+
 if 'dados' not in st.session_state:
     st.session_state.dados = []
+if 'aba_ativa' not in st.session_state:
+    st.session_state.aba_ativa = None
 
-# --- BOTÕES DE CATEGORIA GRANDES ---
-st.write("### 1. Escolha o que registrar:")
+# --- BOTÕES COLORIDOS E REDONDOS ---
+col1, col2, col3, col4 = st.columns(4)
 
-# Criando botões grandes usando colunas
-col1, col2 = st.columns(2)
 with col1:
-    btn_med = st.button("💊 REMÉDIO", use_container_width=True)
+    if st.button("💊\nMed"): st.session_state.aba_ativa = "Medicação"
 with col2:
-    btn_off = st.button("⚠️ OFF", use_container_width=True)
-
-col3, col4 = st.columns(2)
+    if st.button("⚠️\nOFF"): st.session_state.aba_ativa = "OFF"
 with col3:
-    btn_exe = st.button("🏃 TREINO", use_container_width=True)
+    if st.button("🏃\nExe"): st.session_state.aba_ativa = "Treino"
 with col4:
-    btn_ali = st.button("🍽️ COMIDA", use_container_width=True)
-
-# Controla qual formulário aparece
-if 'form' not in st.session_state: st.session_state.form = None
-if btn_med: st.session_state.form = "Medicação"
-if btn_off: st.session_state.form = "OFF"
-if btn_exe: st.session_state.form = "Exercício"
-if btn_ali: st.session_state.form = "Alimentação"
+    if st.button("🍽️\nAli"): st.session_state.aba_ativa = "Comida"
 
 st.markdown("---")
 
 # --- FORMULÁRIOS DE REGISTRO ---
-if st.session_state.form == "Medicação":
-    st.subheader("💊 REGISTRAR REMÉDIO")
-    h_m = st.time_input("Que horas?", datetime.now().time())
-    remedio = st.selectbox("Qual remédio?", ["Prolopa BD (1)", "Mantidan (2)", "Pramipexol (3)", "Rasagilina (4)", "Prolopa HBS (5)", "Prolopa D (6)"])
-    if st.button("CONFIRMAR DOSE", use_container_width=True):
-        num = remedio.split("(")[1].replace(")", "")
-        st.session_state.dados.append({"Data": str(datetime.now().date()), "H": h_m.hour + (h_m.minute/60), "Cat": "Medicação", "Txt": num, "Tipo": "Ponto"})
-        st.success("Salvo!")
-        st.session_state.form = None
+if st.session_state.aba_ativa == "Medicação":
+    st.subheader("💊 Registrar Remédios")
+    h_m = st.time_input("Horário:", datetime.now().time())
+    # Múltipla escolha voltou aqui:
+    sel = st.multiselect("Selecione os remédios:", ["Prolopa BD (1)", "Mantidan (2)", "Pramipexol (3)", "Rasagilina (4)", "Prolopa HBS (5)", "Prolopa D (6)"])
+    if st.button("SALVAR DOSE"):
+        for m in sel:
+            num = m.split("(")[1].replace(")", "")
+            st.session_state.dados.append({"Data": str(datetime.now().date()), "H": h_m.hour + (h_m.minute/60), "Cat": "Med", "Txt": num, "Tipo": "Ponto"})
+        st.success("Registrado!")
+        st.session_state.aba_ativa = None
 
-elif st.session_state.form == "OFF":
-    st.subheader("⚠️ REGISTRAR ESTADO OFF")
+elif st.session_state.aba_ativa == "OFF":
+    st.subheader("⚠️ Registrar Período OFF")
     h_i = st.time_input("Início:", time(8, 0))
     h_f = st.time_input("Fim:", time(9, 0))
-    if st.button("CONFIRMAR OFF", use_container_width=True):
+    if st.button("SALVAR ESTADO OFF"):
         st.session_state.dados.append({"Data": str(datetime.now().date()), "H": h_i.hour + (h_i.minute/60), "H_Fim": h_f.hour + (h_f.minute/60), "Cat": "OFF", "Txt": "!", "Tipo": "Periodo"})
-        st.success("Salvo!")
-        st.session_state.form = None
+        st.success("Registrado!")
+        st.session_state.aba_ativa = None
 
-# --- ABAS DE VISUALIZAÇÃO ---
-st.write("### 2. Seus Gráficos:")
-tab1, tab2 = st.tabs(["📅 DIA", "📈 TUDO"])
+elif st.session_state.aba_ativa == "Treino":
+    st.subheader("🏃 Registrar Exercício")
+    h_e = st.time_input("Horário:", datetime.now().time())
+    exer = st.text_input("O que treinou? (ex: Caminhada)")
+    if st.button("SALVAR TREINO"):
+        st.session_state.dados.append({"Data": str(datetime.now().date()), "H": h_e.hour + (h_e.minute/60), "Cat": "Exe", "Txt": exer, "Tipo": "Ponto"})
+        st.success("Treino salvo!")
+        st.session_state.aba_ativa = None
 
-with tab1:
-    if st.session_state.dados:
-        df = pd.DataFrame(st.session_state.dados)
+elif st.session_state.aba_ativa == "Comida":
+    st.subheader("🍽️ Registrar Alimentação")
+    h_a = st.time_input("Horário:", datetime.now().time())
+    refeicao = st.text_input("O que comeu?")
+    if st.button("SALVAR COMIDA"):
+        st.session_state.dados.append({"Data": str(datetime.now().date()), "H": h_a.hour + (h_a.minute/60), "Cat": "Ali", "Txt": refeicao, "Tipo": "Ponto"})
+        st.success("Comida salva!")
+        st.session_state.aba_ativa = None
+
+# --- GRÁFICO DO DIA ---
+if st.session_state.dados:
+    df = pd.DataFrame(st.session_state.dados)
+    hoje = str(datetime.now().date())
+    df_h = df[df['Data'] == hoje]
+    
+    if not df_h.empty:
+        st.write("### Seu dia hoje:")
         fig = go.Figure()
-        for _, r in df.iterrows():
+        for _, r in df_h.iterrows():
+            cor = {"Med": "#198754", "OFF": "#dc3545", "Exe": "#ffc107", "Ali": "#0dcaf0"}.get(r['Cat'], "#000")
             if r.get('H_Fim'):
-                fig.add_trace(go.Scatter(x=[r['Cat'], r['Cat']], y=[r['H'], r['H_Fim']], mode='lines+text', line=dict(color="#dc3545", width=25), text=["", "OFF"]))
+                fig.add_trace(go.Scatter(x=[r['Cat'], r['Cat']], y=[r['H'], r['H_Fim']], mode='lines+text', line=dict(color=cor, width=25), text=["", "OFF"]))
             else:
-                fig.add_trace(go.Scatter(x=[r['Cat']], y=[r['H']], mode='markers+text', marker=dict(symbol='square', size=20, color="#198754"), text=[r['Txt']], textposition="middle right", textfont=dict(size=20)))
-        fig.update_layout(yaxis=dict(range=[24, 0], dtick=1), height=600, showlegend=False)
+                fig.add_trace(go.Scatter(x=[r['Cat']], y=[r['H']], mode='markers+text', marker=dict(symbol='square', size=18, color=cor), text=[r['Txt']], textposition="middle right", textfont=dict(size=18)))
+        fig.update_layout(yaxis=dict(range=[24, 0], dtick=1), height=500, showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Nada registrado hoje.")
 
-with tab2:
-    if st.session_state.dados:
-        st.dataframe(pd.DataFrame(st.session_state.dados)[['Data', 'Cat', 'Txt']], use_container_width=True)
+# Botão de exportar no final
+if st.session_state.dados:
+    csv = pd.DataFrame(st.session_state.dados).to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Baixar Dados para o Médico", data=csv, file_name='dados_parkinson.csv')
