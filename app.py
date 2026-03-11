@@ -1,113 +1,106 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import plotly.express as px
 import plotly.graph_objects as go
 
-# Configuração para evitar erros de visualização no celular
+# Configuração focada em acessibilidade
 st.set_page_config(page_title="Monitor Parkinson", layout="centered")
 
-st.markdown("### 📊 Monitor Parkinson Pro")
+# Estilo: Botões GIGANTES e sem menus complicados
+st.markdown("""
+<style>
+    .stButton > button { 
+        height: 100px !important; 
+        font-size: 26px !important; 
+        font-weight: bold !important; 
+        border-radius: 25px;
+        margin-bottom: 12px;
+    }
+    .stTabs [data-baseweb="tab"] p { font-size: 24px !important; font-weight: bold !important; }
+</style>
+""", unsafe_allow_stdio=True)
 
-# --- MEMÓRIA ---
+st.title("⏱️ Registro Instantâneo")
+
+# Inicializa memória segura
 if 'dados' not in st.session_state:
     st.session_state.dados = []
-if 'menu' not in st.session_state:
-    st.session_state.menu = None
 
-# --- BOTÕES DE ATALHO ---
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    if st.button("🟢\nMED", use_container_width=True): st.session_state.menu = "Med"
-with c2:
-    if st.button("🔴\nOFF", use_container_width=True): st.session_state.menu = "OFF"
-with c3:
-    if st.button("🟡\nEXE", use_container_width=True): st.session_state.menu = "Exe"
-with c4:
-    if st.button("🔵\nALI", use_container_width=True): st.session_state.menu = "Ali"
+# FUNÇÃO INSTANTÂNEA: Clicou, salvou a hora oficial do sistema
+def registrar_agora(categoria, texto):
+    agora = datetime.now()
+    # Guardamos os dados de forma simples para evitar erros de tipo
+    novo = {
+        "Data": agora.strftime("%Y-%m-%d"),
+        "Hora": agora.strftime("%H:%M"),
+        "H_Decimal": float(agora.hour + agora.minute/60),
+        "Categoria": str(categoria),
+        "Descricao": str(texto),
+        "Contagem": 1
+    }
+    st.session_state.dados.append(novo)
+    st.toast(f"✅ Registrado: {texto} às {novo['Hora']}")
+
+# --- BOTÕES DE UM CLIQUE ---
+st.write("### Toque para salvar agora:")
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("🟢 PROLOPA", use_container_width=True): registrar_agora("Medicação", "Prolopa")
+    if st.button("🟡 TREINO", use_container_width=True): registrar_agora("Exercício", "Treino")
+    if st.button("🫨 TREMOR", use_container_width=True): registrar_agora("Sintoma", "Tremor")
+
+with col2:
+    if st.button("🔴 OFF", use_container_width=True): registrar_agora("Estado", "Início OFF")
+    if st.button("🔵 COMIDA", use_container_width=True): registrar_agora("Alimentação", "Comida")
+    if st.button("🧱 RIGIDEZ", use_container_width=True): registrar_agora("Sintoma", "Rigidez")
 
 st.markdown("---")
 
-hoje_str = datetime.now().strftime("%Y-%m-%d")
+# --- ABAS DE GRÁFICOS ---
+tab_dia, tab_mes = st.tabs(["📅 Gráfico do Dia", "📈 Evolução Mensal"])
 
-# --- FORMULÁRIOS COM SELEÇÃO DE HORA MANUAL (NÃO TRAVA) ---
-if st.session_state.menu:
-    st.info(f"Registrando: {st.session_state.menu}")
-    
-    # Seleção de hora e minuto separada para evitar travamento do relógio
-    col_h, col_m = st.columns(2)
-    with col_h:
-        h_sel = st.selectbox("Hora:", list(range(24)), index=datetime.now().hour)
-    with col_m:
-        # Pula de 10 em 10 minutos
-        m_sel = st.selectbox("Minuto:", [0, 10, 20, 30, 40, 50], index=0)
-    
-    h_dec = float(h_sel + m_sel/60)
-
-    if st.session_state.menu == "Med":
-        sel = st.multiselect("Remédios:", ["Prolopa BD (1)", "Mantidan (2)", "Pramipexol (3)", "Rasagilina (4)", "Prolopa HBS (5)", "Prolopa D (6)"])
-        if st.button("SALVAR MEDICAÇÃO", use_container_width=True):
-            for m in sel:
-                n = m.split("(")[1].replace(")", "")
-                st.session_state.dados.append({"Data": hoje_str, "H": h_dec, "Cat": "Med", "Txt": n, "Tipo": "Ponto"})
-            st.session_state.menu = None
-            st.rerun()
-
-    elif st.session_state.menu == "OFF":
-        sints = st.multiselect("Sintomas (Múltiplos):", ["Tremor", "Rigidez", "Lentidão", "Congelamento"])
-        st.write("Horário de Término:")
-        col_hf, col_mf = st.columns(2)
-        with col_hf: h_f = st.selectbox("Hora Fim:", list(range(24)), index=h_sel)
-        with col_mf: m_f = st.selectbox("Min Fim:", [0, 10, 20, 30, 40, 50], index=min(5, (m_sel//10)+1))
-        
-        if st.button("SALVAR ESTADO OFF", use_container_width=True):
-            t = ", ".join(sints) if sints else "OFF"
-            st.session_state.dados.append({
-                "Data": hoje_str, "H": h_dec, 
-                "H_Fim": float(h_f + m_f/60), 
-                "Cat": "OFF", "Txt": t, "Tipo": "Periodo"
-            })
-            st.session_state.menu = None
-            st.rerun()
-
-    elif st.session_state.menu == "Exe":
-        txt_exe = st.text_input("Atividade (Ex: Fisioterapia):")
-        if st.button("SALVAR EXERCÍCIO", use_container_width=True):
-            st.session_state.dados.append({"Data": hoje_str, "H": h_dec, "Cat": "Exe", "Txt": txt_exe, "Tipo": "Ponto"})
-            st.session_state.menu = None
-            st.rerun()
-
-    elif st.session_state.menu == "Ali":
-        txt_ali = st.text_input("Refeição (Ex: Almoço):")
-        if st.button("SALVAR ALIMENTAÇÃO", use_container_width=True):
-            st.session_state.dados.append({"Data": hoje_str, "H": h_dec, "Cat": "Ali", "Txt": txt_ali, "Tipo": "Ponto"})
-            st.session_state.menu = None
-            st.rerun()
-
-    if st.button("Fechar ❌"):
-        st.session_state.menu = None
-        st.rerun()
-
-# --- GRÁFICO DIÁRIO FIXO ---
 if st.session_state.dados:
     df = pd.DataFrame(st.session_state.dados)
-    df_h = df[df['Data'] == hoje_str]
     
-    if not df_h.empty:
-        st.markdown("### Seu Dia Hoje:")
-        fig = go.Figure()
-        cores = {"Med": "#198754", "OFF": "#dc3545", "Exe": "#ffc107", "Ali": "#0dcaf0"}
-        for _, r in df_h.iterrows():
-            c = cores.get(r['Cat'], "#000")
-            if 'H_Fim' in r and not pd.isna(r['H_Fim']):
-                fig.add_trace(go.Scatter(x=[r['Cat'], r['Cat']], y=[float(r['H']), float(r['H_Fim'])], mode='lines', line=dict(color=c, width=40)))
-            else:
-                fig.add_trace(go.Scatter(x=[r['Cat']], y=[float(r['H'])], mode='markers+text', marker=dict(symbol='square', size=20, color=c), text=[r['Txt']], textposition="middle right"))
+    with tab_dia:
+        hoje = datetime.now().strftime("%Y-%m-%d")
+        df_hoje = df[df['Data'] == hoje]
         
-        fig.update_layout(yaxis=dict(range=[24, 0], dtick=1), height=600, showlegend=False, dragmode=False)
-        st.plotly_chart(fig, use_container_width=True, config={'staticPlot': True})
+        if not df_hoje.empty:
+            fig_dia = go.Figure()
+            cores = {"Medicação": "#198754", "Estado": "#dc3545", "Exercício": "#ffc107", "Alimentação": "#0dcaf0", "Sintoma": "#6f42c1"}
+            
+            for _, r in df_hoje.iterrows():
+                fig_dia.add_trace(go.Scatter(
+                    x=[r['Categoria']], y=[r['H_Decimal']],
+                    mode='markers+text',
+                    marker=dict(size=30, color=cores.get(r['Categoria'], "#000")),
+                    text=[f"{r['Hora']} - {r['Descricao']}"],
+                    textposition="middle right"
+                ))
+            fig_dia.update_layout(yaxis=dict(range=[24, 0], title="Hora do Dia"), height=500, showlegend=False)
+            st.plotly_chart(fig_dia, use_container_width=True, config={'staticPlot': True})
+        else:
+            st.info("Nenhum registro hoje.")
 
-# --- LIMPAR TUDO ---
-st.markdown("---")
+    with tab_mes:
+        st.write("### Frequência por dia:")
+        # Gráfico de barras mostrando quantos registros por dia
+        fig_mes = px.bar(df, x="Data", y="Contagem", color="Categoria", 
+                         title="Atividades ao longo do mês",
+                         color_discrete_map={"Medicação": "#198754", "Estado": "#dc3545", "Exercício": "#ffc107", "Alimentação": "#0dcaf0", "Sintoma": "#6f42c1"})
+        st.plotly_chart(fig_mes, use_container_width=True)
+        
+        # Tabela detalhada
+        if st.checkbox("Ver lista detalhada"):
+            st.dataframe(df[["Data", "Hora", "Categoria", "Descricao"]], use_container_width=True)
+
+else:
+    st.info("Aguardando o primeiro registro para gerar os gráficos.")
+
+# Botão de Reset localizado na lateral
 if st.sidebar.button("🗑️ LIMPAR TUDO"):
     st.session_state.dados = []
     st.rerun()
