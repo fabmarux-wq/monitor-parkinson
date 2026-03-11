@@ -1,20 +1,20 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, time
+from datetime import datetime
 import plotly.graph_objects as go
 
-# Configuração para evitar erros no Android
+# Configuração para evitar erros de visualização no celular
 st.set_page_config(page_title="Monitor Parkinson", layout="centered")
 
 st.markdown("### 📊 Monitor Parkinson Pro")
 
-# --- MEMÓRIA SEGURA ---
+# --- MEMÓRIA ---
 if 'dados' not in st.session_state:
     st.session_state.dados = []
 if 'menu' not in st.session_state:
     st.session_state.menu = None
 
-# --- BOTÕES DE ATALHO (LARGURA TOTAL) ---
+# --- BOTÕES DE ATALHO ---
 c1, c2, c3, c4 = st.columns(4)
 with c1:
     if st.button("🟢\nMED", use_container_width=True): st.session_state.menu = "Med"
@@ -27,49 +27,59 @@ with c4:
 
 st.markdown("---")
 
-hoje_hoje = datetime.now().strftime("%Y-%m-%d")
+hoje_str = datetime.now().strftime("%Y-%m-%d")
 
-# --- FORMULÁRIOS COMPLETOS ---
+# --- FORMULÁRIOS COM SELEÇÃO DE HORA MANUAL (NÃO TRAVA) ---
 if st.session_state.menu:
     st.info(f"Registrando: {st.session_state.menu}")
     
-    # Horário com pulo de 10 minutos (600 segundos)
-    h_escolha = st.time_input("Horário (10 em 10 min):", datetime.now().time(), step=600)
-    h_dec = float(h_escolha.hour + h_escolha.minute/60)
+    # Seleção de hora e minuto separada para evitar travamento do relógio
+    col_h, col_m = st.columns(2)
+    with col_h:
+        h_sel = st.selectbox("Hora:", list(range(24)), index=datetime.now().hour)
+    with col_m:
+        # Pula de 10 em 10 minutos
+        m_sel = st.selectbox("Minuto:", [0, 10, 20, 30, 40, 50], index=0)
+    
+    h_dec = float(h_sel + m_sel/60)
 
     if st.session_state.menu == "Med":
         sel = st.multiselect("Remédios:", ["Prolopa BD (1)", "Mantidan (2)", "Pramipexol (3)", "Rasagilina (4)", "Prolopa HBS (5)", "Prolopa D (6)"])
         if st.button("SALVAR MEDICAÇÃO", use_container_width=True):
             for m in sel:
                 n = m.split("(")[1].replace(")", "")
-                st.session_state.dados.append({"Data": hoje_hoje, "H": h_dec, "Cat": "Med", "Txt": n, "Tipo": "Ponto"})
+                st.session_state.dados.append({"Data": hoje_str, "H": h_dec, "Cat": "Med", "Txt": n, "Tipo": "Ponto"})
             st.session_state.menu = None
             st.rerun()
 
     elif st.session_state.menu == "OFF":
-        sints = st.multiselect("Sintomas:", ["Tremor", "Rigidez", "Lentidão", "Congelamento"])
-        h_fim_escolha = st.time_input("Término do OFF:", datetime.now().time(), step=600)
+        sints = st.multiselect("Sintomas (Múltiplos):", ["Tremor", "Rigidez", "Lentidão", "Congelamento"])
+        st.write("Horário de Término:")
+        col_hf, col_mf = st.columns(2)
+        with col_hf: h_f = st.selectbox("Hora Fim:", list(range(24)), index=h_sel)
+        with col_mf: m_f = st.selectbox("Min Fim:", [0, 10, 20, 30, 40, 50], index=min(5, (m_sel//10)+1))
+        
         if st.button("SALVAR ESTADO OFF", use_container_width=True):
             t = ", ".join(sints) if sints else "OFF"
             st.session_state.dados.append({
-                "Data": hoje_hoje, "H": h_dec, 
-                "H_Fim": float(h_fim_escolha.hour + h_fim_escolha.minute/60), 
+                "Data": hoje_str, "H": h_dec, 
+                "H_Fim": float(h_f + m_f/60), 
                 "Cat": "OFF", "Txt": t, "Tipo": "Periodo"
             })
             st.session_state.menu = None
             st.rerun()
 
     elif st.session_state.menu == "Exe":
-        tipo_exe = st.text_input("O que treinou? (ex: Caminhada, Fisioterapia)")
+        txt_exe = st.text_input("Atividade (Ex: Fisioterapia):")
         if st.button("SALVAR EXERCÍCIO", use_container_width=True):
-            st.session_state.dados.append({"Data": hoje_hoje, "H": h_dec, "Cat": "Exe", "Txt": tipo_exe, "Tipo": "Ponto"})
+            st.session_state.dados.append({"Data": hoje_str, "H": h_dec, "Cat": "Exe", "Txt": txt_exe, "Tipo": "Ponto"})
             st.session_state.menu = None
             st.rerun()
 
     elif st.session_state.menu == "Ali":
-        comida = st.text_input("O que comeu?")
+        txt_ali = st.text_input("Refeição (Ex: Almoço):")
         if st.button("SALVAR ALIMENTAÇÃO", use_container_width=True):
-            st.session_state.dados.append({"Data": hoje_hoje, "H": h_dec, "Cat": "Ali", "Txt": comida, "Tipo": "Ponto"})
+            st.session_state.dados.append({"Data": hoje_str, "H": h_dec, "Cat": "Ali", "Txt": txt_ali, "Tipo": "Ponto"})
             st.session_state.menu = None
             st.rerun()
 
@@ -80,7 +90,7 @@ if st.session_state.menu:
 # --- GRÁFICO DIÁRIO FIXO ---
 if st.session_state.dados:
     df = pd.DataFrame(st.session_state.dados)
-    df_h = df[df['Data'] == hoje_hoje]
+    df_h = df[df['Data'] == hoje_str]
     
     if not df_h.empty:
         st.markdown("### Seu Dia Hoje:")
@@ -96,11 +106,4 @@ if st.session_state.dados:
         fig.update_layout(yaxis=dict(range=[24, 0], dtick=1), height=600, showlegend=False, dragmode=False)
         st.plotly_chart(fig, use_container_width=True, config={'staticPlot': True})
 
-# --- HISTÓRICO MENSAL (ABAIXO) ---
-st.markdown("---")
-if st.checkbox("Ver Histórico Completo"):
-    st.dataframe(pd.DataFrame(st.session_state.dados), use_container_width=True)
-
-if st.sidebar.button("🗑️ LIMPAR TUDO"):
-    st.session_state.dados = []
-    st.rerun()
+# --- LIM
