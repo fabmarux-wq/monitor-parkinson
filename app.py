@@ -8,22 +8,35 @@ import plotly.express as px
 st.set_page_config(page_title="Monitor Parkinson", layout="centered")
 
 # --- MEMÓRIA DO APLICATIVO ---
-if 'v12_dados' not in st.session_state: st.session_state['v12_dados'] = []
+if 'v13_dados' not in st.session_state: st.session_state['v13_dados'] = []
 if 'off_inicio' not in st.session_state: st.session_state['off_inicio'] = None
 if 'treino_inicio' not in st.session_state: st.session_state['treino_inicio'] = None
 if 'menu' not in st.session_state: st.session_state['menu'] = None
 
-# --- ESTILO DOS BOTÕES ---
-st.markdown("""
+# --- ESTILO DOS BOTÕES (CORRIGIDO) ---
+# Usamos cores vibrantes para você identificar o estado ativo
+cor_off = "#FF0000" if st.session_state.off_inicio else "#f0f2f6"
+cor_treino = "#FFD700" if st.session_state.treino_inicio else "#f0f2f6"
+texto_off = "white" if st.session_state.off_inicio else "black"
+texto_treino = "black"
+
+st.markdown(f"""
 <style>
-    .stButton > button { 
-        height: 90px !important; font-size: 22px !important; 
+    .stButton > button {{ 
+        height: 95px !important; font-size: 22px !important; 
         font-weight: bold !important; border-radius: 25px;
         margin-bottom: 10px; width: 100%;
-    }
-    .btn-off-ativo button { background-color: #ff4b4b !important; color: white !important; border: 3px solid black !important; }
-    .btn-treino-ativo button { background-color: #ffeb3b !important; color: black !important; border: 3px solid black !important; }
-    .stTabs [data-baseweb="tab"] p { font-size: 20px !important; font-weight: bold !important; }
+    }}
+    /* Estilo para o botão Finalizar OFF */
+    div[data-testid="column"]:nth-of-type(2) > div > div > div > div:nth-of-type(1) button {{
+        background-color: {cor_off} !important;
+        color: {texto_off} !important;
+    }}
+    /* Estilo para o botão Finalizar Treino */
+    div[data-testid="column"]:nth-of-type(2) > div > div > div > div:nth-of-type(2) button {{
+        background-color: {cor_treino} !important;
+        color: {texto_treino} !important;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -32,53 +45,45 @@ st.title("📊 Monitor Parkinson Pro")
 # Função para salvar eventos
 def salvar_evento(cat, desc, h_ini, h_fim=None):
     agora = datetime.now()
-    st.session_state['v12_dados'].append({
+    # Se for medicação ou alimentação, damos 1 hora de duração para aparecer no gráfico
+    if cat in ["Medicação", "Alimentação"] and h_fim is None:
+        h_fim = h_ini + 1.0
+    
+    st.session_state['v13_dados'].append({
         "Data": agora.strftime("%d/%m/%Y"),
         "Categoria": cat,
         "Descricao": desc,
         "Inicio": float(h_ini),
-        "Fim": float(h_fim) if h_fim is not None else None,
+        "Fim": float(h_fim) if h_fim is not None else h_ini + 0.1,
         "Qtd": 1
     })
 
-# --- BLOCOS DE CONTROLE (INÍCIO E FIM) ---
+# --- CONTROLES DE INÍCIO E FIM ---
 st.subheader("🔴 Controle de OFF")
 c1, c2 = st.columns(2)
 with c1:
     if st.button("INICIAR\nOFF", key="off_start"):
-        agora = datetime.now()
-        st.session_state.off_inicio = agora.hour + agora.minute/60
+        st.session_state.off_inicio = datetime.now().hour + datetime.now().minute/60
         st.rerun()
 with c2:
-    if st.session_state.off_inicio is not None:
-        st.markdown('<div class="btn-off-ativo">', unsafe_allow_html=True)
-        if st.button("FINALIZAR\nOFF (ATIVO)", key="off_end"):
-            agora = datetime.now()
-            salvar_evento("OFF", "Duração OFF", st.session_state.off_inicio, agora.hour + agora.minute/60)
+    if st.button("FINALIZAR\nOFF", key="off_end"):
+        if st.session_state.off_inicio:
+            salvar_evento("OFF", "Duração OFF", st.session_state.off_inicio, datetime.now().hour + datetime.now().minute/60)
             st.session_state.off_inicio = None
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        st.button("FINALIZAR\nOFF", disabled=True, key="off_end_off")
 
 st.subheader("🏃 Controle de Treino")
 c3, c4 = st.columns(2)
 with c3:
     if st.button("INICIAR\nTREINO", key="treino_start"):
-        agora = datetime.now()
-        st.session_state.treino_inicio = agora.hour + agora.minute/60
+        st.session_state.treino_inicio = datetime.now().hour + datetime.now().minute/60
         st.rerun()
 with c4:
-    if st.session_state.treino_inicio is not None:
-        st.markdown('<div class="btn-treino-ativo">', unsafe_allow_html=True)
-        if st.button("FINALIZAR\nTREINO (ATIVO)", key="treino_end"):
-            agora = datetime.now()
-            salvar_evento("Treino", "Duração Treino", st.session_state.treino_inicio, agora.hour + agora.minute/60)
+    if st.button("FINALIZAR\nTREINO", key="treino_end"):
+        if st.session_state.treino_inicio:
+            salvar_evento("Treino", "Duração Treino", st.session_state.treino_inicio, datetime.now().hour + datetime.now().minute/60)
             st.session_state.treino_inicio = None
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        st.button("FINALIZAR\nTREINO", disabled=True, key="treino_end_off")
 
 st.divider()
 
@@ -104,48 +109,4 @@ elif st.session_state.menu == "Ali":
         st.session_state.menu = None
         st.rerun()
 
-# --- GRÁFICOS (REVISADOS CONTRA ERROS) ---
-st.divider()
-if st.session_state['v12_dados']:
-    df = pd.DataFrame(st.session_state['v12_dados'])
-    tab1, tab2 = st.tabs(["📅 Hoje", "📈 Evolução Mensal"])
-    
-    with tab1:
-        hoje = datetime.now().strftime("%d/%m/%Y")
-        df_h = df[df['Data'] == hoje]
-        
-        fig = go.Figure()
-        cores = {"Medicação": "#198754", "OFF": "#dc3545", "Treino": "#ffc107", "Alimentação": "#0dcaf0"}
-
-        if not df_h.empty:
-            for _, r in df_h.iterrows():
-                cor = cores.get(r['Categoria'], "#000")
-                if r['Fim'] is not None:
-                    # BARRAS para OFF e Treino
-                    fig.add_trace(go.Scatter(x=[r['Categoria'], r['Categoria']], y=[r['Inicio'], r['Fim']],
-                                         mode='lines', line=dict(color=cor, width=45), showlegend=False))
-                else:
-                    # QUADRADOS para Medicação e Comida
-                    fig.add_trace(go.Scatter(x=[r['Categoria']], y=[r['Inicio']],
-                                         mode='markers', marker=dict(symbol='square', size=25, color=cor), showlegend=False))
-        
-        # Eixo vertical 0-24 crescente (0 embaixo)
-        fig.update_layout(yaxis=dict(range=[0, 24], dtick=2, title="Horas (0-24h)", autorange=False),
-                          xaxis=dict(title="Categorias"), height=600, showlegend=False, dragmode=False)
-        st.plotly_chart(fig, use_container_width=True, config={'staticPlot': True})
-
-    with tab2:
-        st.write("### Frequência por Dia")
-        fig_mes = px.bar(df, x="Data", y="Qtd", color="Categoria", title="Eventos do Mês",
-                         color_discrete_map=cores)
-        st.plotly_chart(fig_mes, use_container_width=True)
-        
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Baixar Planilha Mensal", data=csv, file_name='diario_parkinson.csv', mime='text/csv')
-else:
-    st.info("Aguardando o primeiro registro.")
-
-# Limpeza na lateral
-if st.sidebar.button("🗑️ LIMPAR TUDO"):
-    st.session_state['v12_dados'] = []
-    st.rerun()
+# ---
