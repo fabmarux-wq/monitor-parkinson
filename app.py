@@ -4,11 +4,11 @@ from datetime import datetime
 import plotly.graph_objects as go
 import plotly.express as px
 
-# Configuração para o Samsung A56
+# 1. Configuração para o Samsung A56
 st.set_page_config(page_title="Monitor Parkinson", layout="centered")
 
 # --- MEMÓRIA DO APLICATIVO ---
-if 'v11_dados' not in st.session_state: st.session_state['v11_dados'] = []
+if 'v12_dados' not in st.session_state: st.session_state['v12_dados'] = []
 if 'off_inicio' not in st.session_state: st.session_state['off_inicio'] = None
 if 'treino_inicio' not in st.session_state: st.session_state['treino_inicio'] = None
 if 'menu' not in st.session_state: st.session_state['menu'] = None
@@ -32,7 +32,7 @@ st.title("📊 Monitor Parkinson Pro")
 # Função para salvar eventos
 def salvar_evento(cat, desc, h_ini, h_fim=None):
     agora = datetime.now()
-    st.session_state['v11_dados'].append({
+    st.session_state['v12_dados'].append({
         "Data": agora.strftime("%d/%m/%Y"),
         "Categoria": cat,
         "Descricao": desc,
@@ -103,15 +103,12 @@ elif st.session_state.menu == "Ali":
         salvar_evento("Alimentação", comida, agora.hour + agora.minute/60)
         st.session_state.menu = None
         st.rerun()
-if st.session_state.menu and st.button("Fechar X"):
-    st.session_state.menu = None
-    st.rerun()
 
-# --- GRÁFICOS (DIÁRIO E MENSAL) ---
+# --- GRÁFICOS (REVISADOS CONTRA ERROS) ---
 st.divider()
-if st.session_state['v11_dados']:
-    df = pd.DataFrame(st.session_state['v11_dados'])
-    tab1, tab2 = st.tabs(["📅 Gráfico de Hoje", "📈 Evolução Mensal"])
+if st.session_state['v12_dados']:
+    df = pd.DataFrame(st.session_state['v12_dados'])
+    tab1, tab2 = st.tabs(["📅 Hoje", "📈 Evolução Mensal"])
     
     with tab1:
         hoje = datetime.now().strftime("%d/%m/%Y")
@@ -124,8 +121,31 @@ if st.session_state['v11_dados']:
             for _, r in df_h.iterrows():
                 cor = cores.get(r['Categoria'], "#000")
                 if r['Fim'] is not None:
+                    # BARRAS para OFF e Treino
                     fig.add_trace(go.Scatter(x=[r['Categoria'], r['Categoria']], y=[r['Inicio'], r['Fim']],
-                                         mode='lines', line=dict(color=cor, width=45), name=r['Categoria']))
+                                         mode='lines', line=dict(color=cor, width=45), showlegend=False))
                 else:
+                    # QUADRADOS para Medicação e Comida
                     fig.add_trace(go.Scatter(x=[r['Categoria']], y=[r['Inicio']],
-                                         mode='markers', marker=
+                                         mode='markers', marker=dict(symbol='square', size=25, color=cor), showlegend=False))
+        
+        # Eixo vertical 0-24 crescente (0 embaixo)
+        fig.update_layout(yaxis=dict(range=[0, 24], dtick=2, title="Horas (0-24h)", autorange=False),
+                          xaxis=dict(title="Categorias"), height=600, showlegend=False, dragmode=False)
+        st.plotly_chart(fig, use_container_width=True, config={'staticPlot': True})
+
+    with tab2:
+        st.write("### Frequência por Dia")
+        fig_mes = px.bar(df, x="Data", y="Qtd", color="Categoria", title="Eventos do Mês",
+                         color_discrete_map=cores)
+        st.plotly_chart(fig_mes, use_container_width=True)
+        
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Baixar Planilha Mensal", data=csv, file_name='diario_parkinson.csv', mime='text/csv')
+else:
+    st.info("Aguardando o primeiro registro.")
+
+# Limpeza na lateral
+if st.sidebar.button("🗑️ LIMPAR TUDO"):
+    st.session_state['v12_dados'] = []
+    st.rerun()
