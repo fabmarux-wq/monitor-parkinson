@@ -4,88 +4,121 @@ from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 
-# 1. Configuração de tela
+# Configuração para o Samsung A56
 st.set_page_config(page_title="Monitor Parkinson", layout="centered")
 
-# 2. Estilo dos botões (Corrigido para não dar TypeError)
+# Estilo: Botões GIGANTES e fáceis de tocar
 st.markdown("""
 <style>
     .stButton > button { 
-        height: 100px !important; 
-        font-size: 24px !important; 
+        height: 85px !important; 
+        font-size: 22px !important; 
         font-weight: bold !important; 
         border-radius: 20px;
-        margin-bottom: 10px;
-        background-color: #f0f2f6;
+        margin-bottom: 12px;
     }
+    .stTabs [data-baseweb="tab"] p { font-size: 22px !important; font-weight: bold !important; }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("⏱️ Registro Instantâneo")
 
-# 3. Memória limpa (v4 para evitar conflitos antigos)
-if 'v4_dados' not in st.session_state:
-    st.session_state['v4_dados'] = []
+# Memória v6
+if 'v6_dados' not in st.session_state:
+    st.session_state['v6_dados'] = []
+if 'menu_aberto' not in st.session_state:
+    st.session_state['menu_aberto'] = None
 
-# Função para salvar no clique
-def salvar_agora(cat, nome):
+# Função de salvamento (Pega a hora do clique oficial)
+def salvar_clique(cat, nome):
     agora = datetime.now()
     registro = {
         "Data": agora.strftime("%d/%m/%Y"),
         "Hora": agora.strftime("%H:%M"),
         "Decimal": float(agora.hour + agora.minute/60),
         "Categoria": str(cat),
-        "Acao": str(nome),
+        "Descricao": str(nome),
         "Contador": 1
     }
-    st.session_state['v4_dados'].append(registro)
-    st.toast(f"✅ {nome} registrado!")
-
-# --- BOTÃO DE RESET (LIMPEZA TOTAL) ---
-if st.button("🛑 CLIQUE AQUI PARA DESTRAVAR O APP", use_container_width=True):
-    st.session_state['v4_dados'] = []
+    st.session_state['v6_dados'].append(registro)
+    st.session_state['menu_aberto'] = None
+    st.toast(f"✅ {nome} salvo às {agora.strftime('%H:%M')}")
     st.rerun()
 
-st.markdown("---")
+# --- BOTÕES DE ATALHO (INÍCIO E FIM) ---
+st.write("### Controles de Início e Fim:")
+c1, c2 = st.columns(2)
+with c1:
+    if st.button("🔴 INICIAR OFF", use_container_width=True): st.session_state['menu_aberto'] = "OFF"
+    if st.button("🏃 INICIAR TREINO", use_container_width=True): salvar_clique("Exercício", "Início Treino")
 
-# --- BOTÕES DE UM CLIQUE ---
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("🟢 PROLOPA", use_container_width=True): salvar_agora("Remédio", "Prolopa")
-    if st.button("🟡 TREINO", use_container_width=True): salvar_agora("Atividade", "Exercício")
-    if st.button("🫨 TREMOR", use_container_width=True): salvar_agora("Sintoma", "Tremor")
-
-with col2:
-    if st.button("🔴 EM OFF", use_container_width=True): salvar_agora("Estado", "Início OFF")
-    if st.button("🔵 COMIDA", use_container_width=True): salvar_agora("Atividade", "Alimentação")
-    if st.button("🧱 RIGIDEZ", use_container_width=True): salvar_agora("Sintoma", "Rigidez")
+with c2:
+    if st.button("⚪ FINALIZAR OFF", use_container_width=True): salvar_clique("Estado", "Fim OFF")
+    if st.button("🏁 FINALIZAR TREINO", use_container_width=True): salvar_clique("Exercício", "Fim Treino")
 
 st.markdown("---")
+st.write("### Outros Registros:")
+if st.button("🟢 MEDICAMENTOS", use_container_width=True): st.session_state['menu_aberto'] = "Med"
+if st.button("🔵 REGISTRAR COMIDA", use_container_width=True): st.session_state['menu_aberto'] = "Ali"
+
+st.markdown("---")
+
+# --- FORMULÁRIOS DINÂMICOS ---
+if st.session_state['menu_aberto'] == "OFF":
+    st.subheader("⚠️ Sintomas do OFF")
+    sints = st.multiselect("Marque os sintomas de agora:", ["Tremor", "Rigidez", "Lentidão", "Congelamento"])
+    if st.button("SALVAR INÍCIO DO OFF AGORA"):
+        if sints:
+            txt = "Início OFF: " + ", ".join(sints)
+            salvar_clique("Estado", txt)
+
+elif st.session_state['menu_aberto'] == "Med":
+    st.subheader("💊 Selecione os Medicamentos")
+    escolhidos = st.multiselect("Marque os remédios tomados agora:", ["Prolopa BD (1)", "Mantidan (2)", "Pramipexol (3)", "Rasagilina (4)", "Prolopa HBS (5)", "Prolopa D (6)"])
+    if st.button("SALVAR MEDICAMENTOS AGORA"):
+        if escolhidos:
+            txt = ", ".join(escolhidos)
+            salvar_clique("Medicação", txt)
+
+elif st.session_state['menu_aberto'] == "Ali":
+    st.subheader("🍽️ O que você comeu?")
+    o_que = st.text_input("Descreva brevemente:")
+    if st.button("SALVAR COMIDA AGORA"):
+        if o_que:
+            salvar_clique("Alimentação", o_que)
+
+if st.session_state['menu_aberto']:
+    if st.button("Cancelar Registro X"):
+        st.session_state['menu_aberto'] = None
+        st.rerun()
 
 # --- GRÁFICOS ---
-if st.session_state['v4_dados']:
-    df = pd.DataFrame(st.session_state['v4_dados'])
+if st.session_state['v6_dados']:
+    st.markdown("---")
+    df = pd.DataFrame(st.session_state['v6_dados'])
     
-    tab1, tab2 = st.tabs(["📅 Gráfico de Hoje", "📈 Gráfico do Mês"])
+    tab_dia, tab_mes = st.tabs(["📅 Hoje", "📈 Mês"])
     
-    with tab1:
+    with tab_dia:
         hoje = datetime.now().strftime("%d/%m/%Y")
         df_hoje = df[df['Data'] == hoje]
         if not df_hoje.empty:
             fig_dia = px.scatter(df_hoje, x="Categoria", y="Decimal", color="Categoria",
-                                 text="Hora", title="Registros de Hoje")
-            fig_dia.update_traces(marker=dict(size=25))
+                                 text="Hora", title="Atividades de Hoje")
+            fig_dia.update_traces(marker=dict(size=25), textposition="top center")
             fig_dia.update_layout(yaxis=dict(range=[24, 0], dtick=1), showlegend=False)
             st.plotly_chart(fig_dia, use_container_width=True, config={'staticPlot': True})
         else:
-            st.write("Aguardando registros para hoje.")
+            st.write("Sem registros para hoje.")
 
-    with tab2:
+    with tab_mes:
         st.write("### Frequência Mensal")
         fig_mes = px.bar(df, x="Data", y="Contador", color="Categoria", title="Eventos por Dia")
         st.plotly_chart(fig_mes, use_container_width=True)
-        
-        if st.checkbox("Ver tabela detalhada"):
-            st.dataframe(df[["Data", "Hora", "Categoria", "Acao"]], use_container_width=True)
-else:
-    st.info("O diário está vazio. Toque nos botões para começar.")
+        if st.checkbox("Ver tabela completa"):
+            st.dataframe(df[["Data", "Hora", "Categoria", "Descricao"]], use_container_width=True)
+
+# Botão de Reset
+if st.sidebar.button("🗑️ LIMPAR TUDO"):
+    st.session_state['v6_dados'] = []
+    st.rerun()
