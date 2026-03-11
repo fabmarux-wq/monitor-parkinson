@@ -2,105 +2,89 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import plotly.express as px
-import plotly.graph_objects as go
 
-# Configuração focada em acessibilidade
+# 1. Configuração de acessibilidade total
 st.set_page_config(page_title="Monitor Parkinson", layout="centered")
 
-# Estilo: Botões GIGANTES e sem menus complicados
+# Estilo para botões GIGANTES e cores fortes
 st.markdown("""
 <style>
     .stButton > button { 
-        height: 100px !important; 
-        font-size: 26px !important; 
-        font-weight: bold !important; 
-        border-radius: 25px;
-        margin-bottom: 12px;
+        height: 100px !important; font-size: 24px !important; 
+        font-weight: bold !important; border-radius: 20px;
+        margin-bottom: 15px; border: 3px solid #333 !important;
     }
-    .stTabs [data-baseweb="tab"] p { font-size: 24px !important; font-weight: bold !important; }
 </style>
 """, unsafe_allow_stdio=True)
 
 st.title("⏱️ Registro Instantâneo")
 
-# Inicializa memória segura
-if 'dados' not in st.session_state:
-    st.session_state.dados = []
+# 2. Memória Blindada (Session State)
+if 'diario_parkinson' not in st.session_state:
+    st.session_state['diario_parkinson'] = []
 
-# FUNÇÃO INSTANTÂNEA: Clicou, salvou a hora oficial do sistema
-def registrar_agora(categoria, texto):
+# FUNÇÃO DE SALVAMENTO: Registra na hora do clique
+def clique_agora(cat, acao):
     agora = datetime.now()
-    # Guardamos os dados de forma simples para evitar erros de tipo
+    # Guardamos tudo como STRING (texto) para nunca dar TypeError
     novo = {
-        "Data": agora.strftime("%Y-%m-%d"),
+        "Data": agora.strftime("%d/%m/%Y"),
         "Hora": agora.strftime("%H:%M"),
-        "H_Decimal": float(agora.hour + agora.minute/60),
-        "Categoria": str(categoria),
-        "Descricao": str(texto),
-        "Contagem": 1
+        "Decimal": float(agora.hour + agora.minute/60),
+        "Categoria": str(cat),
+        "O_Que": str(acao),
+        "Qtd": 1
     }
-    st.session_state.dados.append(novo)
-    st.toast(f"✅ Registrado: {texto} às {novo['Hora']}")
+    st.session_state['diario_parkinson'].append(novo)
+    st.toast(f"✅ {acao} registrado!")
+
+# --- BOTÃO DE EMERGÊNCIA (DESTRAVAR) ---
+if st.button("🛑 LIMPAR TUDO E DESTRAVAR", use_container_width=True):
+    st.session_state['diario_parkinson'] = []
+    st.rerun()
+
+st.markdown("---")
+st.write("### Toque no botão no momento exato:")
 
 # --- BOTÕES DE UM CLIQUE ---
-st.write("### Toque para salvar agora:")
 col1, col2 = st.columns(2)
-
 with col1:
-    if st.button("🟢 PROLOPA", use_container_width=True): registrar_agora("Medicação", "Prolopa")
-    if st.button("🟡 TREINO", use_container_width=True): registrar_agora("Exercício", "Treino")
-    if st.button("🫨 TREMOR", use_container_width=True): registrar_agora("Sintoma", "Tremor")
-
+    if st.button("🟢 PROLOPA", use_container_width=True): clique_agora("Remédio", "Prolopa")
+    if st.button("🟡 TREINO", use_container_width=True): clique_agora("Treino", "Exercício")
+    if st.button("🫨 TREMOR", use_container_width=True): clique_agora("Sintoma", "Tremor")
 with col2:
-    if st.button("🔴 OFF", use_container_width=True): registrar_agora("Estado", "Início OFF")
-    if st.button("🔵 COMIDA", use_container_width=True): registrar_agora("Alimentação", "Comida")
-    if st.button("🧱 RIGIDEZ", use_container_width=True): registrar_agora("Sintoma", "Rigidez")
+    if st.button("🔴 EM OFF", use_container_width=True): clique_agora("Estado", "Início OFF")
+    if st.button("🔵 COMIDA", use_container_width=True): clique_agora("Comida", "Alimentação")
+    if st.button("🧱 RIGIDEZ", use_container_width=True): clique_agora("Sintoma", "Rigidez")
 
 st.markdown("---")
 
-# --- ABAS DE GRÁFICOS ---
-tab_dia, tab_mes = st.tabs(["📅 Gráfico do Dia", "📈 Evolução Mensal"])
-
-if st.session_state.dados:
-    df = pd.DataFrame(st.session_state.dados)
+# --- GRÁFICOS (DIÁRIO E MENSAL) ---
+if st.session_state['diario_parkinson']:
+    df = pd.DataFrame(st.session_state['diario_parkinson'])
     
-    with tab_dia:
-        hoje = datetime.now().strftime("%Y-%m-%d")
+    tab1, tab2 = st.tabs(["📅 Gráfico de Hoje", "📈 Histórico Mensal"])
+    
+    with tab1:
+        hoje = datetime.now().strftime("%d/%m/%Y")
         df_hoje = df[df['Data'] == hoje]
-        
         if not df_hoje.empty:
-            fig_dia = go.Figure()
-            cores = {"Medicação": "#198754", "Estado": "#dc3545", "Exercício": "#ffc107", "Alimentação": "#0dcaf0", "Sintoma": "#6f42c1"}
-            
-            for _, r in df_hoje.iterrows():
-                fig_dia.add_trace(go.Scatter(
-                    x=[r['Categoria']], y=[r['H_Decimal']],
-                    mode='markers+text',
-                    marker=dict(size=30, color=cores.get(r['Categoria'], "#000")),
-                    text=[f"{r['Hora']} - {r['Descricao']}"],
-                    textposition="middle right"
-                ))
-            fig_dia.update_layout(yaxis=dict(range=[24, 0], title="Hora do Dia"), height=500, showlegend=False)
+            # Gráfico de hoje simples e fixo
+            fig_dia = px.scatter(df_hoje, x="Categoria", y="Decimal", color="Categoria",
+                                 text="Hora", height=500, title="Distribuição do Dia")
+            fig_dia.update_traces(marker=dict(size=25))
+            fig_dia.update_layout(yaxis=dict(range=[24, 0], dtick=1), showlegend=False)
             st.plotly_chart(fig_dia, use_container_width=True, config={'staticPlot': True})
         else:
-            st.info("Nenhum registro hoje.")
+            st.info("Aguardando o primeiro registro de hoje.")
 
-    with tab_mes:
-        st.write("### Frequência por dia:")
-        # Gráfico de barras mostrando quantos registros por dia
-        fig_mes = px.bar(df, x="Data", y="Contagem", color="Categoria", 
-                         title="Atividades ao longo do mês",
-                         color_discrete_map={"Medicação": "#198754", "Estado": "#dc3545", "Exercício": "#ffc107", "Alimentação": "#0dcaf0", "Sintoma": "#6f42c1"})
+    with tab2:
+        st.write("### Evolução por Dia")
+        # Gráfico que agrupa por dia para ver o mês
+        fig_mes = px.bar(df, x="Data", y="Qtd", color="Categoria", title="Total de eventos no mês")
         st.plotly_chart(fig_mes, use_container_width=True)
         
-        # Tabela detalhada
-        if st.checkbox("Ver lista detalhada"):
-            st.dataframe(df[["Data", "Hora", "Categoria", "Descricao"]], use_container_width=True)
-
+        if st.checkbox("Ver lista de registros"):
+            st.dataframe(df[["Data", "Hora", "Categoria", "O_Que"]], use_container_width=True)
 else:
-    st.info("Aguardando o primeiro registro para gerar os gráficos.")
-
-# Botão de Reset localizado na lateral
-if st.sidebar.button("🗑️ LIMPAR TUDO"):
-    st.session_state.dados = []
-    st.rerun()
+    st.info("Nada registrado ainda. Os gráficos aparecerão após o primeiro clique.")
