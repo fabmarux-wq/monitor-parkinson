@@ -1,18 +1,18 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import plotly.express as px
+import plotly.graph_objects as go
 
 # Configuração para o Samsung A56
 st.set_page_config(page_title="Monitor Parkinson", layout="centered")
 
 # --- ESTADO DO APLICATIVO ---
-if 'v8_dados' not in st.session_state: st.session_state['v8_dados'] = []
-if 'off_ativo' not in st.session_state: st.session_state['off_ativo'] = False
-if 'treino_ativo' not in st.session_state: st.session_state['treino_ativo'] = False
+if 'v9_dados' not in st.session_state: st.session_state['v9_dados'] = []
+if 'off_inicio' not in st.session_state: st.session_state['off_inicio'] = None
+if 'treino_inicio' not in st.session_state: st.session_state['treino_inicio'] = None
 if 'menu' not in st.session_state: st.session_state['menu'] = None
 
-# --- ESTILO DOS BOTÕES (SIMPLIFICADO PARA NÃO DAR ERRO) ---
+# --- ESTILO DOS BOTÕES ---
 st.markdown("""
 <style>
     .stButton > button { 
@@ -27,96 +27,89 @@ st.markdown("""
 
 st.title("📊 Monitor Parkinson Pro")
 
-# Função para salvar na hora exata
-def salvar(cat, acao):
+# Função para salvar eventos
+def salvar_evento(cat, desc, h_ini, h_fim=None):
     agora = datetime.now()
-    st.session_state['v8_dados'].append({
+    st.session_state['v9_dados'].append({
         "Data": agora.strftime("%d/%m/%Y"),
-        "Hora": agora.strftime("%H:%M"),
-        "Decimal": float(agora.hour + agora.minute/60),
-        "Categoria": str(cat),
-        "Descricao": str(acao),
-        "Qtd": 1
+        "Categoria": cat,
+        "Descricao": desc,
+        "Inicio": float(h_ini),
+        "Fim": float(h_fim) if h_fim is not None else None,
+        "Hora_Txt": agora.strftime("%H:%M")
     })
-    st.toast(f"✅ {acao} salvo!")
 
 # --- BLOCO 1: ESTADO OFF ---
-st.subheader("🔴 Controle de OFF")
+st.subheader("🔴 Controle de OFF (Barras)")
 c1, c2 = st.columns(2)
 with c1:
-    if st.button("INICIAR\nOFF", key="iniciar_off"):
+    if st.button("INICIAR\nOFF", key="btn_ini_off"):
         st.session_state.menu = "OFF"
 with c2:
-    # Se o OFF estiver ativo, aplica a classe de cor vermelha
-    container_off = st.container()
-    if st.session_state.off_ativo:
-        with container_off:
-            st.markdown('<div class="btn-off-ativo">', unsafe_allow_html=True)
-            if st.button("FINALIZAR\nOFF (ATIVO)", key="fim_off"):
-                st.session_state.off_ativo = False
-                salvar("Estado", "Fim do OFF")
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+    if st.session_state.off_inicio is not None:
+        st.markdown('<div class="btn-off-ativo">', unsafe_allow_html=True)
+        if st.button("FINALIZAR\nOFF (ATIVO)", key="btn_fim_off"):
+            agora = datetime.now()
+            salvar_evento("OFF", "Duração OFF", st.session_state.off_inicio, agora.hour + agora.minute/60)
+            st.session_state.off_inicio = None
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
     else:
-        if st.button("FINALIZAR\nOFF", key="fim_off_off"):
-            st.warning("O OFF não foi iniciado.")
+        st.button("FINALIZAR\nOFF", key="btn_fim_off_des", disabled=True)
 
 # --- BLOCO 2: TREINO ---
-st.subheader("🏃 Controle de Treino")
+st.subheader("🏃 Controle de Treino (Barras)")
 c3, c4 = st.columns(2)
 with c3:
-    if st.button("INICIAR\nTREINO", key="ini_tre"):
-        st.session_state.treino_ativo = True
-        salvar("Exercício", "Início Treino")
+    if st.button("INICIAR\nTREINO", key="btn_ini_tre"):
+        agora = datetime.now()
+        st.session_state.treino_inicio = agora.hour + agora.minute/60
+        st.toast("Treino iniciado!")
         st.rerun()
 with c4:
-    # Se o Treino estiver ativo, aplica a cor amarela
-    container_treino = st.container()
-    if st.session_state.treino_ativo:
-        with container_treino:
-            st.markdown('<div class="btn-treino-ativo">', unsafe_allow_html=True)
-            if st.button("FINALIZAR\nTREINO (ATIVO)", key="fim_tre"):
-                st.session_state.treino_ativo = False
-                salvar("Exercício", "Fim Treino")
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+    if st.session_state.treino_inicio is not None:
+        st.markdown('<div class="btn-treino-ativo">', unsafe_allow_html=True)
+        if st.button("FINALIZAR\nTREINO (ATIVO)", key="btn_fim_tre"):
+            agora = datetime.now()
+            salvar_evento("Treino", "Duração Treino", st.session_state.treino_inicio, agora.hour + agora.minute/60)
+            st.session_state.treino_inicio = None
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
     else:
-        if st.button("FINALIZAR\nTREINO", key="fim_tre_off"):
-            st.warning("O Treino não foi iniciado.")
+        st.button("FINALIZAR\nTREINO", key="btn_fim_tre_des", disabled=True)
 
 st.divider()
 
-# --- OUTROS BOTÕES ---
+# --- BLOCO 3: PONTUAIS (QUADRADOS) ---
 c5, c6 = st.columns(2)
 with c5:
-    if st.button("🟢 REMÉDIOS", use_container_width=True): st.session_state.menu = "Med"
+    if st.button("🟢 REMÉDIOS", key="btn_med"): st.session_state.menu = "Med"
 with c6:
-    if st.button("🔵 COMIDA", use_container_width=True): st.session_state.menu = "Ali"
+    if st.button("🔵 COMIDA", key="btn_ali"): st.session_state.menu = "Ali"
 
 # --- FORMULÁRIOS ---
 if st.session_state.menu == "OFF":
-    st.write("### O que está sentindo?")
-    sints = st.multiselect("Sintomas:", ["Tremor", "Rigidez", "Lentidão", "Congelamento"])
-    if st.button("SALVAR E INICIAR OFF"):
-        st.session_state.off_ativo = True
+    sints = st.multiselect("Sintomas iniciais:", ["Tremor", "Rigidez", "Lentidão", "Congelamento"])
+    if st.button("COMEÇAR OFF AGORA"):
+        agora = datetime.now()
+        st.session_state.off_inicio = agora.hour + agora.minute/60
         st.session_state.menu = None
-        salvar("Estado", "Início OFF: " + ", ".join(sints))
         st.rerun()
 
 elif st.session_state.menu == "Med":
-    st.write("### O que tomou agora?")
-    remedios = st.multiselect("Medicamentos:", ["Prolopa BD (1)", "Mantidan (2)", "Pramipexol (3)", "Rasagilina (4)", "Prolopa HBS (5)", "Prolopa D (6)"])
+    remedios = st.multiselect("O que tomou?", ["Prolopa BD (1)", "Mantidan (2)", "Pramipexol (3)", "Rasagilina (4)", "Prolopa HBS (5)", "Prolopa D (6)"])
     if st.button("SALVAR REMÉDIOS"):
+        agora = datetime.now()
+        salvar_evento("Medicação", ", ".join(remedios), agora.hour + agora.minute/60)
         st.session_state.menu = None
-        salvar("Medicação", ", ".join(remedios))
         st.rerun()
 
 elif st.session_state.menu == "Ali":
-    st.write("### O que comeu?")
-    comida = st.text_input("Descrição:")
+    comida = st.text_input("O que comeu?")
     if st.button("SALVAR ALIMENTAÇÃO"):
+        agora = datetime.now()
+        salvar_evento("Alimentação", comida, agora.hour + agora.minute/60)
         st.session_state.menu = None
-        salvar("Alimentação", comida)
         st.rerun()
 
 if st.session_state.menu:
@@ -124,32 +117,62 @@ if st.session_state.menu:
         st.session_state.menu = None
         st.rerun()
 
-# --- GRÁFICOS ---
-if st.session_state['v8_dados']:
-    st.divider()
-    df = pd.DataFrame(st.session_state['v8_dados'])
-    t1, t2 = st.tabs(["📅 Hoje", "📈 Mês"])
+# --- GRÁFICO DIÁRIO (EIXO CRESCENTE 0-24) ---
+st.divider()
+st.write("### Gráfico de Atividades")
+
+if st.session_state['v9_dados']:
+    df = pd.DataFrame(st.session_state['v9_dados'])
+    hoje = datetime.now().strftime("%d/%m/%Y")
+    df_h = df[df['Data'] == hoje]
     
-    with t1:
-        hoje = datetime.now().strftime("%d/%m/%Y")
-        df_h = df[df['Data'] == hoje]
-        if not df_h.empty:
-            fig_dia = px.scatter(df_h, x="Categoria", y="Decimal", color="Categoria",
-                                 text="Hora", title="Atividades de Hoje")
-            fig_dia.update_traces(marker=dict(size=25), textposition="top center")
-            fig_dia.update_layout(yaxis=dict(range=[24, 0], dtick=1), showlegend=False)
-            st.plotly_chart(fig_dia, use_container_width=True, config={'staticPlot': True})
+    fig = go.Figure()
+    cores = {"Medicação": "#198754", "OFF": "#dc3545", "Treino": "#ffc107", "Alimentação": "#0dcaf0"}
 
-    with t2:
-        st.write("### Evolução Mensal")
-        fig_mes = px.bar(df, x="Data", y="Qtd", color="Categoria", title="Eventos por Dia")
-        st.plotly_chart(fig_mes, use_container_width=True)
-        if st.checkbox("Ver lista completa"):
-            st.dataframe(df[["Data", "Hora", "Categoria", "Descricao"]], use_container_width=True)
+    for _, r in df_h.iterrows():
+        cor = cores.get(r['Categoria'], "#000")
+        
+        # Se for intervalo (OFF ou Treino), desenha uma BARRA (linha grossa)
+        if r['Fim'] is not None:
+            fig.add_trace(go.Scatter(
+                x=[r['Categoria'], r['Categoria']],
+                y=[r['Inicio'], r['Fim']],
+                mode='lines',
+                line=dict(color=cor, width=40),
+                name=r['Categoria'],
+                hoverinfo='text',
+                text=f"{r['Categoria']}: {r['Inicio']:.2f} às {r['Fim']:.2f}"
+            ))
+        # Se for pontual (Medicação ou Alimentação), desenha um QUADRADO
+        else:
+            fig.add_trace(go.Scatter(
+                x=[r['Categoria']],
+                y=[r['Inicio']],
+                mode='markers',
+                marker=dict(symbol='square', size=25, color=cor),
+                name=r['Categoria'],
+                hoverinfo='text',
+                text=f"{r['Categoria']}: {r['Descricao']}"
+            ))
 
-# Limpar tudo na lateral
+    # Configuração do Eixo Vertical: Começa em 0 (base) e vai até 24 (topo)
+    fig.update_layout(
+        yaxis=dict(
+            range=[0, 24], 
+            dtick=2, 
+            title="Horas do Dia",
+            autorange=False # Força o 0 ficar embaixo
+        ),
+        xaxis=dict(title="Categorias"),
+        height=600,
+        showlegend=False,
+        dragmode=False
+    )
+    st.plotly_chart(fig, use_container_width=True, config={'staticPlot': True})
+
+# Limpar memória
 if st.sidebar.button("🗑️ LIMPAR TUDO"):
-    st.session_state['v8_dados'] = []
-    st.session_state.off_ativo = False
-    st.session_state.treino_ativo = False
+    st.session_state['v9_dados'] = []
+    st.session_state.off_inicio = None
+    st.session_state.treino_inicio = None
     st.rerun()
