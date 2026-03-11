@@ -3,141 +3,153 @@ import pandas as pd
 from datetime import datetime
 import plotly.express as px
 
-# 1. Configuração para o Samsung A56
+# Configuração para o Samsung A56
 st.set_page_config(page_title="Monitor Parkinson", layout="centered")
 
-# --- LÓGICA DE ESTADO (PARA AS CORES) ---
-if 'v7_dados' not in st.session_state: st.session_state['v7_dados'] = []
-if 'menu_aberto' not in st.session_state: st.session_state['menu_aberto'] = None
+# --- ESTADO DO APLICATIVO ---
+if 'v8_dados' not in st.session_state: st.session_state['v8_dados'] = []
 if 'off_ativo' not in st.session_state: st.session_state['off_ativo'] = False
 if 'treino_ativo' not in st.session_state: st.session_state['treino_ativo'] = False
+if 'menu' not in st.session_state: st.session_state['menu'] = None
 
-# 2. ESTILO CSS DINÂMICO
-# Aqui controlamos as cores dos botões de finalizar com base no clique
-cor_off = "#dc3545" if st.session_state.off_ativo else "#f0f2f6"
-cor_treino = "#ffc107" if st.session_state.treino_ativo else "#f0f2f6"
-texto_off = "white" if st.session_state.off_ativo else "black"
-texto_treino = "black"
-
-st.markdown(f"""
+# --- ESTILO DOS BOTÕES (SIMPLIFICADO PARA NÃO DAR ERRO) ---
+st.markdown("""
 <style>
-    /* Botões Gerais */
-    .stButton > button {{ 
-        height: 80px !important; font-size: 20px !important; 
+    .stButton > button { 
+        height: 90px !important; font-size: 22px !important; 
         font-weight: bold !important; border-radius: 20px;
-        margin-bottom: 10px;
-    }}
-    /* Cor do botão Finalizar OFF quando ativo */
-    div[data-testid="column"]:nth-of-type(2) button:contains("FINALIZAR OFF") {{
-        background-color: {cor_off} !important;
-        color: {texto_off} !important;
-    }}
-    /* Cor do botão Finalizar Treino quando ativo */
-    div[data-testid="column"]:nth-of-type(2) button:contains("FINALIZAR TREINO") {{
-        background-color: {cor_treino} !important;
-        color: {texto_treino} !important;
-    }}
+        margin-bottom: 10px; width: 100%;
+    }
+    .btn-off-ativo button { background-color: #ff4b4b !important; color: white !important; border: 3px solid black !important; }
+    .btn-treino-ativo button { background-color: #ffeb3b !important; color: black !important; border: 3px solid black !important; }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("📊 Monitor Parkinson Pro")
 
-# Função de salvamento (Hora Instantânea)
-def salvar_clique(cat, nome):
+# Função para salvar na hora exata
+def salvar(cat, acao):
     agora = datetime.now()
-    registro = {{
+    st.session_state['v8_dados'].append({
         "Data": agora.strftime("%d/%m/%Y"),
         "Hora": agora.strftime("%H:%M"),
         "Decimal": float(agora.hour + agora.minute/60),
         "Categoria": str(cat),
-        "Descricao": str(nome),
-        "Contador": 1
-    }}
-    st.session_state['v7_dados'].append(registro)
-    st.session_state['menu_aberto'] = None
-    st.toast(f"✅ Registrado às {agora.strftime('%H:%M')}")
-    st.rerun()
+        "Descricao": str(acao),
+        "Qtd": 1
+    })
+    st.toast(f"✅ {acao} salvo!")
 
 # --- BLOCO 1: ESTADO OFF ---
-st.write("### Controle de OFF")
+st.subheader("🔴 Controle de OFF")
 c1, c2 = st.columns(2)
 with c1:
-    if st.button("🔴 INICIAR OFF", use_container_width=True):
-        st.session_state['menu_aberto'] = "OFF"
+    if st.button("INICIAR\nOFF", key="iniciar_off"):
+        st.session_state.menu = "OFF"
 with c2:
-    if st.button("🏁 FINALIZAR OFF", use_container_width=True):
-        if st.session_state.off_ativo:
-            st.session_state.off_ativo = False
-            salvar_clique("Estado", "Fim do OFF")
+    # Se o OFF estiver ativo, aplica a classe de cor vermelha
+    container_off = st.container()
+    if st.session_state.off_ativo:
+        with container_off:
+            st.markdown('<div class="btn-off-ativo">', unsafe_allow_html=True)
+            if st.button("FINALIZAR\nOFF (ATIVO)", key="fim_off"):
+                st.session_state.off_ativo = False
+                salvar("Estado", "Fim do OFF")
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        if st.button("FINALIZAR\nOFF", key="fim_off_off"):
+            st.warning("O OFF não foi iniciado.")
 
 # --- BLOCO 2: TREINO ---
-st.write("### Controle de Treino")
+st.subheader("🏃 Controle de Treino")
 c3, c4 = st.columns(2)
 with c3:
-    if st.button("🏃 INICIAR TREINO", use_container_width=True):
+    if st.button("INICIAR\nTREINO", key="ini_tre"):
         st.session_state.treino_ativo = True
-        salvar_clique("Exercício", "Início do Treino")
+        salvar("Exercício", "Início Treino")
+        st.rerun()
 with c4:
-    if st.button("🏁 FINALIZAR TREINO", use_container_width=True):
-        if st.session_state.treino_ativo:
-            st.session_state.treino_ativo = False
-            salvar_clique("Exercício", "Fim do Treino")
+    # Se o Treino estiver ativo, aplica a cor amarela
+    container_treino = st.container()
+    if st.session_state.treino_ativo:
+        with container_treino:
+            st.markdown('<div class="btn-treino-ativo">', unsafe_allow_html=True)
+            if st.button("FINALIZAR\nTREINO (ATIVO)", key="fim_tre"):
+                st.session_state.treino_ativo = False
+                salvar("Exercício", "Fim Treino")
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        if st.button("FINALIZAR\nTREINO", key="fim_tre_off"):
+            st.warning("O Treino não foi iniciado.")
 
-st.markdown("---")
+st.divider()
 
 # --- OUTROS BOTÕES ---
 c5, c6 = st.columns(2)
 with c5:
-    if st.button("🟢 MEDICAMENTOS", use_container_width=True): st.session_state['menu_aberto'] = "Med"
+    if st.button("🟢 REMÉDIOS", use_container_width=True): st.session_state.menu = "Med"
 with c6:
-    if st.button("🔵 COMIDA", use_container_width=True): st.session_state['menu_aberto'] = "Ali"
+    if st.button("🔵 COMIDA", use_container_width=True): st.session_state.menu = "Ali"
 
-# --- FORMULÁRIOS QUE ABREM AO CLICAR ---
-if st.session_state['menu_aberto'] == "OFF":
-    st.subheader("⚠️ Sintomas Iniciais")
-    sints = st.multiselect("Marque os sintomas:", ["Tremor", "Rigidez", "Lentidão", "Congelamento"])
-    if st.button("SALVAR E COMEÇAR OFF"):
+# --- FORMULÁRIOS ---
+if st.session_state.menu == "OFF":
+    st.write("### O que está sentindo?")
+    sints = st.multiselect("Sintomas:", ["Tremor", "Rigidez", "Lentidão", "Congelamento"])
+    if st.button("SALVAR E INICIAR OFF"):
         st.session_state.off_ativo = True
-        txt = "Início OFF: " + ", ".join(sints)
-        salvar_clique("Estado", txt)
+        st.session_state.menu = None
+        salvar("Estado", "Início OFF: " + ", ".join(sints))
+        st.rerun()
 
-elif st.session_state['menu_aberto'] == "Med":
-    st.subheader("💊 Medicamentos")
-    escolhidos = st.multiselect("O que tomou agora?", ["Prolopa BD (1)", "Mantidan (2)", "Pramipexol (3)", "Rasagilina (4)", "Prolopa HBS (5)", "Prolopa D (6)"])
+elif st.session_state.menu == "Med":
+    st.write("### O que tomou agora?")
+    remedios = st.multiselect("Medicamentos:", ["Prolopa BD (1)", "Mantidan (2)", "Pramipexol (3)", "Rasagilina (4)", "Prolopa HBS (5)", "Prolopa D (6)"])
     if st.button("SALVAR REMÉDIOS"):
-        salvar_clique("Medicação", ", ".join(escolhidos))
+        st.session_state.menu = None
+        salvar("Medicação", ", ".join(remedios))
+        st.rerun()
 
-elif st.session_state['menu_aberto'] == "Ali":
-    st.subheader("🍽️ Alimentação")
-    o_que = st.text_input("O que comeu?")
+elif st.session_state.menu == "Ali":
+    st.write("### O que comeu?")
+    comida = st.text_input("Descrição:")
     if st.button("SALVAR ALIMENTAÇÃO"):
-        salvar_clique("Alimentação", o_que)
+        st.session_state.menu = None
+        salvar("Alimentação", comida)
+        st.rerun()
+
+if st.session_state.menu:
+    if st.button("Cancelar X"):
+        st.session_state.menu = None
+        st.rerun()
 
 # --- GRÁFICOS ---
-if st.session_state['v7_dados']:
+if st.session_state['v8_dados']:
     st.divider()
-    df = pd.DataFrame(st.session_state['v7_dados'])
-    tab1, tab2 = st.tabs(["📅 Gráfico de Hoje", "📈 Histórico Mensal"])
+    df = pd.DataFrame(st.session_state['v8_dados'])
+    t1, t2 = st.tabs(["📅 Hoje", "📈 Mês"])
     
-    with tab1:
+    with t1:
         hoje = datetime.now().strftime("%d/%m/%Y")
-        df_hoje = df[df['Data'] == hoje]
-        if not df_hoje.empty:
-            fig_dia = px.scatter(df_hoje, x="Categoria", y="Decimal", color="Categoria",
-                                 text="Hora", title="Suas Atividades")
+        df_h = df[df['Data'] == hoje]
+        if not df_h.empty:
+            fig_dia = px.scatter(df_h, x="Categoria", y="Decimal", color="Categoria",
+                                 text="Hora", title="Atividades de Hoje")
             fig_dia.update_traces(marker=dict(size=25), textposition="top center")
             fig_dia.update_layout(yaxis=dict(range=[24, 0], dtick=1), showlegend=False)
             st.plotly_chart(fig_dia, use_container_width=True, config={'staticPlot': True})
 
-    with tab2:
-        fig_mes = px.bar(df, x="Data", y="Contador", color="Categoria", title="Frequência Mensal")
+    with t2:
+        st.write("### Evolução Mensal")
+        fig_mes = px.bar(df, x="Data", y="Qtd", color="Categoria", title="Eventos por Dia")
         st.plotly_chart(fig_mes, use_container_width=True)
-        if st.checkbox("Ver lista de registros"):
+        if st.checkbox("Ver lista completa"):
             st.dataframe(df[["Data", "Hora", "Categoria", "Descricao"]], use_container_width=True)
 
-# Reset na lateral
+# Limpar tudo na lateral
 if st.sidebar.button("🗑️ LIMPAR TUDO"):
-    st.session_state['v7_dados'] = []
+    st.session_state['v8_dados'] = []
     st.session_state.off_ativo = False
     st.session_state.treino_ativo = False
     st.rerun()
