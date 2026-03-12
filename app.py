@@ -27,7 +27,7 @@ if 'off_inicio' not in st.session_state: st.session_state.off_inicio = None
 if 'treino_inicio' not in st.session_state: st.session_state.treino_inicio = None
 if 'menu_aberto' not in st.session_state: st.session_state.menu_aberto = None
 
-# --- ESTILO DOS BOTÕES ---
+# --- ESTILO DOS BOTÕES E TEXTO ---
 cor_off = "#FF0000" if st.session_state.off_inicio else "#F0F2F6"
 cor_treino = "#FFD700" if st.session_state.treino_inicio else "#F0F2F6"
 txt_off = "white" if st.session_state.off_inicio else "black"
@@ -37,12 +37,14 @@ st.markdown(f"""
     .stButton > button {{ height: 95px !important; font-size: 22px !important; font-weight: bold !important; border-radius: 25px; margin-bottom: 12px; }}
     button[key="f_off"] {{ background-color: {cor_off} !important; color: {txt_off} !important; border: 3px solid black !important; }}
     button[key="f_tre"] {{ background-color: {cor_treino} !important; color: black !important; border: 3px solid black !important; }}
+    /* Aumentar fonte do multiselect */
+    .stMultiSelect span {{ font-size: 20px !important; }}
 </style>
 """, unsafe_allow_html=True)
 
 st.title("📊 Monitor Parkinson Pro")
 
-aba_reg, aba_graf = st.tabs(["📝 REGISTRAR", "📈 HISTÓRICO"])
+aba_reg, aba_graf = st.tabs(["📝 REGISTAR", "📈 HISTÓRICO"])
 
 with aba_reg:
     df_atual = carregar_dados()
@@ -86,24 +88,32 @@ with aba_reg:
         if st.button("🔵 COMIDA"): st.session_state.menu_aberto = "Ali"
 
     if st.session_state.menu_aberto == "Med":
-        remedios = st.multiselect("Escolha o remédio:", ["Prolopa BD", "Mantidan", "Pramipexol", "Rasagilina", "Prolopa HBS", "Prolopa D"])
+        # LISTA ATUALIZADA COM AZILECT E ENTACAPONA
+        lista_remedios = ["Prolopa BD", "Prolopa HBS", "Prolopa D", "Mantidan", "Pramipexol", "Azilect (Rasagilina)", "Entacapona", "Rasagilina"]
+        remedios = st.multiselect("Escolha o remédio:", lista_remedios)
+        
         if st.button("💾 SALVAR AGORA"):
-            agora = hora_sp()
-            h = agora.hour + agora.minute/60
-            novo = pd.DataFrame([{"Data": agora.strftime("%d/%m/%Y"), "Cat": "Medicação", "Ini": h, "Fim": h + 1.0, "Desc": ", ".join(remedios)}])
-            salvar_dados(pd.concat([df_atual, novo], ignore_index=True))
-            st.session_state.menu_aberto = None
-            st.rerun()
+            if remedios:
+                agora = hora_sp()
+                h = agora.hour + agora.minute/60
+                novo = pd.DataFrame([{"Data": agora.strftime("%d/%m/%Y"), "Cat": "Medicação", "Ini": h, "Fim": h + 0.5, "Desc": ", ".join(remedios)}])
+                salvar_dados(pd.concat([df_atual, novo], ignore_index=True))
+                st.session_state.menu_aberto = None
+                st.success("Registado!")
+                st.rerun()
+            else:
+                st.warning("Escolha pelo menos um remédio.")
             
     elif st.session_state.menu_aberto == "Ali":
         comida = st.text_input("O que comeu?")
         if st.button("💾 SALVAR AGORA"):
-            agora = hora_sp()
-            h = agora.hour + agora.minute/60
-            novo = pd.DataFrame([{"Data": agora.strftime("%d/%m/%Y"), "Cat": "Alimentação", "Ini": h, "Fim": h + 1.0, "Desc": comida}])
-            salvar_dados(pd.concat([df_atual, novo], ignore_index=True))
-            st.session_state.menu_aberto = None
-            st.rerun()
+            if comida:
+                agora = hora_sp()
+                h = agora.hour + agora.minute/60
+                novo = pd.DataFrame([{"Data": agora.strftime("%d/%m/%Y"), "Cat": "Alimentação", "Ini": h, "Fim": h + 0.5, "Desc": comida}])
+                salvar_dados(pd.concat([df_atual, novo], ignore_index=True))
+                st.session_state.menu_aberto = None
+                st.rerun()
 
 with aba_graf:
     df_h = carregar_dados()
@@ -127,7 +137,6 @@ with aba_graf:
         fig_mes.update_layout(yaxis=dict(range=[0, 24], dtick=1), xaxis=dict(type='category'), height=550, showlegend=False)
         st.plotly_chart(fig_mes, use_container_width=True, config={'staticPlot': True})
         
-        # Botão de Download por segurança
         csv = df_h.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Baixar Planilha Completa", data=csv, file_name='monitor_parkinson.csv', use_container_width=True)
     else:
