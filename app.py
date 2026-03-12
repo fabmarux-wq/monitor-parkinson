@@ -9,7 +9,7 @@ st.set_page_config(page_title="Monitor Parkinson", layout="centered")
 
 # --- CONEXÃO COM A MEMÓRIA (Google Sheets) ---
 # Substitua o link abaixo pelo link da sua planilha
-url = "https://docs.google.com/spreadsheets/d/1tTwbJHkV9mJIv8BKc1s4wZ5rIZYccoCB584gXVrb-Ao/edit?usp=sharing" 
+url = "https://docs.google.com/spreadsheets/d/1TIzxrVdArj5luQOJW3gob-LcO97l6srZOnI7JUGDPyk/edit?usp=sharing" 
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
