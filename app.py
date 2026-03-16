@@ -2,25 +2,19 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
+from streamlit_gsheets import GSheetsConnection
 
-# 1. Configuração de tela
+# 1. Configuração para o Samsung A56
 st.set_page_config(page_title="Monitor Parkinson Pro", layout="centered")
 
-# --- CONEXÃO SIMPLIFICADA COM GOOGLE SHEETS ---
-# Aqui vai o link que você copiou no Passo 1
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1TIzxrVdArj5luQOJW3gob-LcO97l6srZOnI7JUGDPyk/edit?usp=sharing"
+# --- CONEXÃO OFICIAL COM MEMÓRIA PERMANENTE ---
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-def obter_csv_url(url):
-    # Transforma o link normal em um link de download direto para o app ler
-    return url.replace('/edit?usp=sharing', '/export?format=csv').replace('/edit#gid=', '/export?format=csv&gid=')
-
-def carregar_dados_google():
+def ler_dados():
     try:
-        # Tenta ler a planilha do Google
-        csv_url = obter_csv_url(URL_PLANILHA)
-        return pd.read_csv(csv_url)
+        # Lê os dados da planilha configurada nos Secrets
+        return conn.read(ttl=0) 
     except:
-        # Se falhar ou estiver vazia, cria uma estrutura básica
         return pd.DataFrame(columns=["Data", "Cat", "Ini", "Fim", "Desc"])
 
 # --- HORÁRIO DE SÃO PAULO ---
@@ -50,7 +44,7 @@ st.title("📊 Monitor Parkinson Pro")
 aba_reg, aba_graf = st.tabs(["📝 REGISTRAR", "📈 HISTÓRICO"])
 
 with aba_reg:
-    st.subheader("Controle de OFF e Treino")
+    st.subheader("Controle de Tempo")
     c1, c2 = st.columns(2)
     with c1:
         if st.button("🔴 INICIAR\nOFF", key="i_off"):
@@ -61,12 +55,32 @@ with aba_reg:
         if st.button(label_o, key="f_off"):
             if st.session_state.off_inicio:
                 agora = hora_sp()
-                # AVISO: Como não usamos Secrets, para SALVAR você deve baixar o CSV e subir na planilha
-                # ou usar o botão de download abaixo.
-                st.success(f"OFF Finalizado às {agora.strftime('%H:%M')}! Não esqueça de baixar os dados no fim do dia.")
+                df_atual = ler_dados()
+                novo = pd.DataFrame([{"Data": agora.strftime("%d/%m/%Y"), "Cat": "OFF", "Ini": st.session_state.off_inicio, "Fim": agora.hour + agora.minute/60, "Desc": "OFF"}])
+                # SALVA NO GOOGLE SHEETS
+                conn.update(data=pd.concat([df_atual, novo], ignore_index=True))
                 st.session_state.off_inicio = None
+                st.success("Salvo no Google!")
+                st.rerun()
 
-    # Botões de Medicamentos e Comida (Lista Completa)
+    # Treino (Mesma Lógica)
+    c3, c4 = st.columns(2)
+    with c3:
+        if st.button("🏃 INICIAR\nTREINO", key="i_tre"):
+            st.session_state.treino_inicio = hora_sp().hour + hora_sp().minute/60
+            st.rerun()
+    with c4:
+        label_t = "🏁 FINALIZAR\nTREINO (ATIVO)" if st.session_state.treino_inicio else "🏁 FINALIZAR\nTREINO"
+        if st.button(label_t, key="f_tre"):
+            if st.session_state.treino_inicio:
+                agora = hora_sp()
+                df_atual = ler_dados()
+                novo = pd.DataFrame([{"Data": agora.strftime("%d/%m/%Y"), "Cat": "Treino", "Ini": st.session_state.treino_inicio, "Fim": agora.hour + agora.minute/60, "Desc": "Treino"}])
+                conn.update(data=pd.concat([df_atual, novo], ignore_index=True))
+                st.session_state.treino_inicio = None
+                st.success("Salvo no Google!")
+                st.rerun()
+
     st.divider()
     c5, c6 = st.columns(2)
     with c5:
@@ -75,22 +89,37 @@ with aba_reg:
         if st.button("🔵 COMIDA"): st.session_state.menu_aberto = "Ali"
 
     if st.session_state.menu_aberto == "Med":
-        lista = ["Prolopa BD", "Prolopa HBS", "Prolopa D", "Mantidan", "Pramipexol", "Azilect (Rasagilina)", "Entacapona"]
-        remedios = st.multiselect("Escolha:", lista)
+        remedios = st.multiselect("O que tomou?", ["Prolopa BD", "Prolopa HBS", "Prolopa D", "Mantidan", "Pramipexol", "Azilect (Rasagilina)", "Entacapona"])
         if st.button("💾 CONFIRMAR"):
-            st.toast(f"Registrado: {remedios}")
+            agora = hora_sp()
+            df_atual = ler_dados()
+            h = agora.hour + agora.minute/60
+            novo = pd.DataFrame([{"Data": agora.strftime("%d/%m/%Y"), "Cat": "Medicação", "Ini": h, "Fim": h + 0.5, "Desc": ", ".join(remedios)}])
+            conn.update(data=pd.concat([df_atual, novo], ignore_index=True))
             st.session_state.menu_aberto = None
+            st.rerun()
 
 with aba_graf:
-    # AQUI O APP LÊ O QUE ESTÁ NA PLANILHA
-    df_h = carregar_dados_google()
+    df_h = ler_dados()
     if not df_h.empty:
-        st.write("### O Andar da Carruagem (Direto do Google)")
-        # Gráfico Mensal
+        # Gráfico diário e mensal como você pediu: 0-24h
+        hoje = hora_sp().strftime("%d/%m/%Y")
+        cores = {"Medicação": "#198754", "OFF": "#dc3545", "Treino": "#ffc107", "Alimentação": "#0dcaf0"}
+        
+        st.subheader(f"Hoje: {hoje}")
+        df_hoje = df_h[df_h['Data'] == hoje]
+        fig_dia = go.Figure()
+        for _, r in df_hoje.iterrows():
+            fig_dia.add_trace(go.Scatter(x=[r['Cat'], r['Cat']], y=[r['Ini'], r['Fim']], mode='lines', line=dict(color=cores.get(r['Cat'], "#000"), width=50)))
+        fig_dia.update_layout(yaxis=dict(range=[0, 24], dtick=1, title="Horas"), height=550, showlegend=False)
+        st.plotly_chart(fig_dia, use_container_width=True, config={'staticPlot': True})
+
+        st.divider()
+        st.subheader("O Andar da Carruagem (Mês)")
         fig_mes = go.Figure()
         for _, r in df_h.iterrows():
-            fig_mes.add_trace(go.Scatter(x=[r['Data'], r['Data']], y=[r['Ini'], r['Fim']], mode='lines', line=dict(width=15)))
-        fig_mes.update_layout(yaxis=dict(range=[0, 24], dtick=1), xaxis=dict(type='category'), height=500)
-        st.plotly_chart(fig_mes, use_container_width=True)
+            fig_mes.add_trace(go.Scatter(x=[r['Data'], r['Data']], y=[r['Ini'], r['Fim']], mode='lines', line=dict(color=cores.get(r['Cat'], "#000"), width=15)))
+        fig_mes.update_layout(yaxis=dict(range=[0, 24], dtick=1), xaxis=dict(type='category'), height=550, showlegend=False)
+        st.plotly_chart(fig_mes, use_container_width=True, config={'staticPlot': True})
     else:
-        st.info("Sua planilha no Google ainda está vazia ou o link está incorreto.")
+        st.info("Sua planilha está vazia. Comece a registrar para ver o histórico.")
