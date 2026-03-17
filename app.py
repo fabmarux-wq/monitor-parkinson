@@ -14,7 +14,7 @@ URL_POST = "https://script.google.com/macros/s/AKfycbzJQah7Clh7sRhc3bkB5nZqPukW5
 def ler_dados():
     try:
         # Transforma o link da planilha em link de download CSV
-        csv_url = Uhttps://docs.google.com/spreadsheets/d/1TIzxrVdArj5luQOJW3gob-LcO97l6srZOnI7JUGDPyk/edit?usp=sharing.replace('/edit?usp=sharing', '/export?format=csv').replace('/edit#gid=', '/export?format=csv&gid=')
+        csv_url = https://docs.google.com/spreadsheets/d/1TIzxrVdArj5luQOJW3gob-LcO97l6srZOnI7JUGDPyk/edit?usp=sharing.replace('/edit?usp=sharing', '/export?format=csv').replace('/edit#gid=', '/export?format=csv&gid=')
         if "/export" not in csv_url:
              csv_url = https://docs.google.com/spreadsheets/d/1TIzxrVdArj5luQOJW3gob-LcO97l6srZOnI7JUGDPyk/edit?usp=sharing.split('/edit')[0] + '/export?format=csv'
         return pd.read_csv(csv_url)
