@@ -8,15 +8,15 @@ import requests
 st.set_page_config(page_title="Monitor Parkinson Pro", layout="centered")
 
 # --- ⚠️ ATENÇÃO: COLOQUE SEUS LINKS ABAIXO ⚠️ ---
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/"
-URL_POST = "https://script.google.com/macros/s/SEU_SCRIPT_AQUI/exec"
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1TIzxrVdArj5luQOJW3gob-LcO97l6srZOnI7JUGDPyk/edit?usp=sharing"
+URL_POST = "https://script.google.com/macros/s/AKfycbzJQah7Clh7sRhc3bkB5nZqPukW5cT4iQI1dTf99vO8a-Xop5qtKrcAeZIIWNODIQuEkg/exec"
 
 def ler_dados():
     try:
         # Transforma o link da planilha em link de download CSV
-        csv_url = URL_PLANILHA.replace('/edit?usp=sharing', '/export?format=csv').replace('/edit#gid=', '/export?format=csv&gid=')
+        csv_url = Uhttps://docs.google.com/spreadsheets/d/1TIzxrVdArj5luQOJW3gob-LcO97l6srZOnI7JUGDPyk/edit?usp=sharing.replace('/edit?usp=sharing', '/export?format=csv').replace('/edit#gid=', '/export?format=csv&gid=')
         if "/export" not in csv_url:
-             csv_url = URL_PLANILHA.split('/edit')[0] + '/export?format=csv'
+             csv_url = https://docs.google.com/spreadsheets/d/1TIzxrVdArj5luQOJW3gob-LcO97l6srZOnI7JUGDPyk/edit?usp=sharing.split('/edit')[0] + '/export?format=csv'
         return pd.read_csv(csv_url)
     except Exception as e:
         return pd.DataFrame(columns=["Data", "Cat", "Ini", "Fim", "Desc"])
