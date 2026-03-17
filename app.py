@@ -8,7 +8,7 @@ import requests
 st.set_page_config(page_title="Monitor Parkinson Pro", layout="centered")
 
 # --- ⚠️ ATENÇÃO: COLOQUE SEUS LINKS ABAIXO ⚠️ ---
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/SUA_PLANILHA_AQUI"
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/"
 URL_POST = "https://script.google.com/macros/s/SEU_SCRIPT_AQUI/exec"
 
 def ler_dados():
