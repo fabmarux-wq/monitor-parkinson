@@ -9,10 +9,10 @@ st.set_page_config(page_title="Monitor Parkinson Pro", layout="centered")
 
 # --- ⚠️ CONFIGURAÇÃO DOS SEUS LINKS ⚠️ ---
 # Link da sua planilha (o que você vê no navegador)
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1TIzxrVdArj5luQOJW3gob-LcO97l6srZOnI7JUGDPyk/edit"
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1pDxi9QH70MjAgo3qnt2f2iELJndFzeHg3HeeYH1rtyg/edit?usp=sharing"
 
 # Link do "Porteiro" (O link que o Google deu em 'Implantar')
-URL_POST = "COLE_AQUI_O_LINK_DO_APPS_SCRIPT"
+URL_POST = "https://script.google.com/macros/s/AKfycbxoJVTjuxhwKEjKWgto8agLz2WKSHxLki5kuubatPHSY5ZdhtR37vSDg9oOOjM2aDON9Q/exec"
 
 def ler_dados():
     try:
